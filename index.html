@@ -635,13 +635,13 @@ body {
 // ── CONFIG ──────────────────────────────────────────────
 // 1) Make a GitHub Personal Access Token (classic) with ONLY the "gist" scope
 //    → github.com/settings/tokens → Generate new token (classic)
-// 2) Create a new Gist at gist.github.com with one file named exactly
-//    tracker-data.json containing:  {"drivers":{},"trips":{}}
-// 3) Copy the Gist ID (the long string in the gist's URL) below, along
-//    with the token.
-const GITHUB_TOKEN = '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';
-const GIST_ID = '2ca92844c46ee2d9a01a6f306a0dfae9';
-const GIST_FILE = 'tracker-data.json';
+// ── CONFIG ──────────────────────────────────────────────
+// Paste your Cloudflare Worker URL below (e.g.
+// 'https://pccs-tracker-proxy.yourname.workers.dev') and the SAME
+// APP_SECRET you set as a secret in that Worker. Your real GitHub
+// token lives only inside the Worker — never in this file.
+const WORKER_URL = 'https://cool-king-aba8.raghavendra-lm88.workers.dev/';
+const APP_SECRET = '42FYCTbOI7VdQvcO9BnLDhowYPhHfhIr';   // must exactly match the Worker's APP_SECRET
 const POLL_MS = 5000;      // how often the coordinator screen refreshes
 const PUSH_MS = 4000;      // min gap between a driver's location uploads
 
@@ -660,39 +660,27 @@ let tripStartTs = null;
 let pollTimer = null;
 let lastPushTs = 0;
 
-// ── GITHUB GIST STORAGE ──────────────────────────────────
-function ghHeaders() {
-  return {
-    'Authorization': 'token ' + GITHUB_TOKEN,
-    'Accept': 'application/vnd.github+json',
-    'Content-Type': 'application/json'
-  };
+// ── WORKER-PROXIED STORAGE ────────────────────────────────
+function appHeaders(extra) {
+  return { 'X-App-Secret': APP_SECRET, ...(extra || {}) };
 }
 
 async function initGitHub() {
   try {
-    const res = await fetch('https://api.github.com/gists/' + GIST_ID, { headers: ghHeaders() });
+    const res = await fetch(WORKER_URL, { headers: appHeaders() });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return true;
   } catch (e) {
-    showToast('❌ GitHub error: ' + e.message);
+    showToast('❌ Connection error: ' + e.message);
     return false;
   }
 }
 
 async function fetchGistData() {
-  const res = await fetch('https://api.github.com/gists/' + GIST_ID, { headers: ghHeaders(), cache: 'no-store' });
+  const res = await fetch(WORKER_URL, { headers: appHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  const gist = await res.json();
-  const file = gist.files[GIST_FILE];
-  if (!file) throw new Error('"' + GIST_FILE + '" not found in gist');
-  let content = file.content;
-  if (file.truncated) {
-    const raw = await fetch(file.raw_url, { cache: 'no-store' });
-    content = await raw.text();
-  }
   try {
-    const data = JSON.parse(content);
+    const data = await res.json();
     data.drivers = data.drivers || {};
     data.trips = data.trips || {};
     return data;
@@ -702,10 +690,10 @@ async function fetchGistData() {
 }
 
 async function saveGistData(data) {
-  const res = await fetch('https://api.github.com/gists/' + GIST_ID, {
-    method: 'PATCH',
-    headers: ghHeaders(),
-    body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(data) } } })
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: appHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data)
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
 }
@@ -752,8 +740,8 @@ async function doLogin() {
     name = currentVehicle;
   }
 
-  if (!GITHUB_TOKEN || !GIST_ID) {
-    showLoginError('⚠️ No GitHub Token / Gist ID configured. Add them at the top of the script.'); return;
+  if (!WORKER_URL || !APP_SECRET) {
+    showLoginError('⚠️ No Worker URL / App Secret configured. Add them at the top of the script.'); return;
   }
 
   const btn = document.getElementById('btn-login');
