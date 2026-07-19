@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PCCS Vehicle Trip Tracker</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a1628;
+  --surface: #0f2040;
+  --surface2: #162a4a;
+  --border: #1e3a5a;
+  --accent: #e8a020;
+  --blue: #1a6bbf;
+  --blue2: #4fc3f7;
+  --green: #27ae60;
+  --red: #e74c3c;
+  --text: #e8f0fe;
+  --muted: #7aa0c0;
+  --radius: 14px;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── SCREENS ── */
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ── LOGIN SCREEN ── */
+#screen-login {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+#screen-login::before {
+  content: '';
+  position: fixed;
+  top: -40%; left: -20%;
+  width: 80vw; height: 80vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26,107,191,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+#screen-login::after {
+  content: '';
+  position: fixed;
+  bottom: -30%; right: -20%;
+  width: 60vw; height: 60vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,160,32,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.login-box {
+  width: 100%; max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 32px 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 28px;
+}
+.brand-logo {
+  width: 52px; height: 52px;
+  background: var(--accent);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+.brand-name { font-size: 20px; font-weight: 700; color: #fff; line-height: 1.2; }
+.brand-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.role-tabs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 20px;
+}
+.role-tab {
+  padding: 14px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg);
+}
+.role-tab:hover { border-color: var(--blue); }
+.role-tab.selected { border-color: var(--blue); background: rgba(26,107,191,0.12); }
+.role-tab.selected.delivery { border-color: var(--accent); background: rgba(232,160,32,0.1); }
+.role-tab .tab-icon { font-size: 24px; margin-bottom: 6px; }
+.role-tab .tab-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.role-tab .tab-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: block; }
+.form-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus { border-color: var(--blue2); }
+
+.btn-login {
+  width: 100%; padding: 14px;
+  border: none; border-radius: 12px;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
+.btn-login.coordinator { background: var(--blue); color: white; }
+.btn-login.coordinator:hover { background: #145a9e; }
+.btn-login.delivery { background: var(--accent); color: #0a1628; }
+.btn-login.delivery:hover { background: #d4901c; }
+.btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.login-error {
+  font-size: 12px; color: var(--red);
+  text-align: center; margin-top: 10px;
+  min-height: 18px;
+}
+
+/* ── HEADER ── */
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.app-header-left { display: flex; align-items: center; gap: 10px; }
+.header-logo {
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.header-title { font-size: 15px; font-weight: 700; color: #fff; }
+.header-sub { font-size: 11px; color: var(--muted); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.live-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(39,174,96,0.15);
+  border: 1px solid rgba(39,174,96,0.3);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px; color: var(--green); font-weight: 600;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+.logout-btn {
+  background: none; border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 10px;
+  color: var(--muted); font-size: 12px; cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* ── DELIVERY BOY SCREEN ── */
+#screen-delivery { background: var(--bg); }
+.delivery-body { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+
+.pulse-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px;
+}
+.pulse-ring {
+  width: 130px; height: 130px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 3px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+  transition: all 0.4s;
+  position: relative;
+}
+.pulse-ring.sharing {
+  border-color: var(--green);
+  box-shadow: 0 0 0 0 rgba(39,174,96,0.4);
+  animation: ripple 1.8s infinite;
+}
+.pulse-ring.error { border-color: var(--red); }
+@keyframes ripple {
+  0% { box-shadow: 0 0 0 0 rgba(39,174,96,0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(39,174,96,0); }
+  100% { box-shadow: 0 0 0 0 rgba(39,174,96,0); }
+}
+.pulse-status { font-size: 16px; font-weight: 700; color: #fff; text-align: center; }
+.pulse-sub { font-size: 12px; color: var(--muted); text-align: center; }
+.update-badge {
+  background: rgba(79,195,247,0.1);
+  border: 1px solid rgba(79,195,247,0.2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--blue2);
+}
+
+.coords-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.coord-box {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.coord-lbl { font-size: 10px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; }
+.coord-num { font-size: 13px; font-weight: 600; color: var(--blue2); font-family: monospace; }
+
+.acc-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+.acc-lbl { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.acc-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.acc-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width 0.5s; width: 0; }
+.acc-num { font-size: 12px; color: var(--text); min-width: 38px; text-align: right; }
+
+.btn-share {
+  width: 100%; padding: 16px;
+  border: none; border-radius: 14px;
+  font-size: 16px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.btn-share.start { background: var(--green); color: white; }
+.btn-share.start:hover { background: #1e8449; }
+.btn-share.start:disabled { background: #1e4d35; color: #4a8c63; cursor: not-allowed; }
+.btn-share.stop { background: var(--red); color: white; }
+.btn-share.stop:hover { background: #c0392b; }
+
+.info-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 13px; color: var(--muted);
+  line-height: 1.7;
+}
+.info-strip strong { color: var(--text); }
+
+/* ── COORDINATOR SCREEN ── */
+#screen-coordinator { background: var(--bg); }
+
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stat-box {
+  background: var(--surface);
+  padding: 12px 8px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat-box:last-child { border-right: none; }
+.stat-num { font-size: 22px; font-weight: 800; color: var(--blue2); }
+.stat-num.green { color: var(--green); }
+.stat-num.muted { color: var(--muted); }
+.stat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.map-section {
+  position: relative;
+  height: 300px;
+  flex-shrink: 0;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.map-section iframe { width: 100%; height: 100%; border: none; display: block; }
+.map-empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; gap: 10px;
+  color: var(--muted); font-size: 13px; text-align: center;
+  padding: 20px;
+}
+.map-empty-state .big-icon { font-size: 44px; }
+.map-chip {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(10,22,40,0.88);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px; color: var(--blue2);
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+.drivers-panel { flex: 1; overflow-y: auto; padding: 14px; }
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.panel-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.refresh-btn {
+  background: none; border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 10px;
+  color: var(--muted); font-size: 12px; cursor: pointer;
+  transition: all 0.2s;
+}
+.refresh-btn:hover { border-color: var(--blue2); color: var(--blue2); }
+
+.driver-list { display: flex; flex-direction: column; gap: 10px; }
+.driver-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.driver-card:hover { border-color: var(--blue); background: rgba(26,107,191,0.06); }
+.driver-card.focused { border-color: var(--green); background: rgba(39,174,96,0.06); }
+
+.avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+  position: relative;
+}
+.avatar.delivery-role { background: rgba(232,160,32,0.2); }
+.status-badge {
+  position: absolute; bottom: 0; right: 0;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+.badge-on { background: var(--green); }
+.badge-off { background: var(--muted); }
+
+.driver-info { flex: 1; min-width: 0; }
+.d-name { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 3px; }
+.d-coords { font-size: 11px; color: var(--muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-meta { display: flex; gap: 10px; margin-top: 3px; }
+.d-time { font-size: 11px; color: var(--blue2); }
+.d-acc { font-size: 11px; color: var(--muted); }
+
+.track-btn {
+  background: var(--blue);
+  color: white; border: none;
+  border-radius: 8px; padding: 7px 12px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.track-btn:hover { background: #145a9e; }
+
+.empty-drivers {
+  text-align: center; color: var(--muted);
+  font-size: 13px; padding: 30px 20px; line-height: 1.8;
+}
+
+/* ── TRIP HISTORY TABLE ── */
+.trip-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+.trip-table-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.3fr 1.3fr 1fr 1fr;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  min-width: 480px;
+}
+.trip-table-row:last-child { border-bottom: none; }
+.trip-table-head {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  background: var(--surface2);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.trip-table-row:not(.trip-table-head) { color: var(--text); }
+.trip-table-row div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  max-width: 90vw;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-box">
+    <div class="brand">
+      <div class="brand-logo">🚛</div>
+      <div>
+        <div class="brand-name">PCCS Vehicle Tracker</div>
+        <div class="brand-sub">Live vehicle &amp; trip tracking system</div>
+      </div>
+    </div>
+
+    <div class="role-tabs">
+      <div class="role-tab" id="tab-coordinator" onclick="selectRole('coordinator')">
+        <div class="tab-icon">🗺️</div>
+        <div class="tab-label">Coordinator</div>
+        <div class="tab-desc">Track all drivers</div>
+      </div>
+      <div class="role-tab delivery" id="tab-delivery" onclick="selectRole('delivery')">
+        <div class="tab-icon">🚛</div>
+        <div class="tab-label">Driver</div>
+        <div class="tab-desc">Share vehicle &amp; trip</div>
+      </div>
+    </div>
+
+    <div id="login-fields">
+      <div class="form-group" id="group-name">
+        <label class="form-label" id="name-label">Your Name</label>
+        <input class="form-input" id="input-name" type="text" placeholder="Enter your name"
+          onkeydown="if(event.key==='Enter') doLogin()" />
+      </div>
+      <div class="form-group" id="group-vehicle" style="display:none;">
+        <label class="form-label">Vehicle Number</label>
+        <input class="form-input" id="input-vehicle" type="text" placeholder="e.g. KA01AB1234" />
+      </div>
+      <div class="form-group" id="group-mobile" style="display:none;">
+        <label class="form-label">Mobile Number</label>
+        <input class="form-input" id="input-mobile" type="tel" placeholder="Enter mobile number"
+          onkeydown="if(event.key==='Enter') doLogin()" />
+      </div>
+    </div>
+
+    <button class="btn-login coordinator" id="btn-login" onclick="doLogin()">Login</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════ DELIVERY BOY SCREEN ══════════════ -->
+<div id="screen-delivery" class="screen">
+  <div class="app-header">
+    <div class="app-header-left">
+      <div class="header-logo">🚛</div>
+      <div>
+        <div class="header-title" id="delivery-header-name">Vehicle</div>
+        <div class="header-sub" id="delivery-header-mobile">Driver</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-pill" id="delivery-live-pill" style="display:none;">
+        <div class="live-dot"></div> LIVE
+      </div>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="delivery-body">
+
+    <!-- Trip start form: shown before a trip begins -->
+    <div class="pulse-card" id="trip-setup-card">
+      <div class="pulse-ring">🧾</div>
+      <div class="pulse-status">Start New Trip</div>
+      <div class="pulse-sub">Enter the odometer reading to begin</div>
+      <div class="form-group" style="width:100%;text-align:left;">
+        <label class="form-label">Trip Starting Meter Reading (km)</label>
+        <input class="form-input" id="input-trip-start" type="number" inputmode="numeric" placeholder="e.g. 45210" />
+      </div>
+      <button class="btn-share start" id="btn-start" onclick="startTrip()" style="margin-top:2px;">
+        🚛 Start Trip &amp; Share Location
+      </button>
+    </div>
+
+    <!-- Active trip: live location sharing -->
+    <div class="pulse-card" id="active-trip-card" style="display:none;">
+      <div class="pulse-ring" id="pulse-ring">📍</div>
+      <div class="pulse-status" id="pulse-status">Ready to share</div>
+      <div class="pulse-sub" id="pulse-sub">Press Start to share your location</div>
+      <div class="update-badge" id="update-badge" style="display:none;">Update #<span id="update-count">0</span></div>
+      <div class="update-badge" id="trip-start-chip" style="display:none;"></div>
+
+      <div class="coords-grid" id="coords-grid" style="display:none;">
+        <div class="coord-box">
+          <div class="coord-lbl">Latitude</div>
+          <div class="coord-num" id="d-lat">--</div>
+        </div>
+        <div class="coord-box">
+          <div class="coord-lbl">Longitude</div>
+          <div class="coord-num" id="d-lng">--</div>
+        </div>
+      </div>
+
+      <div class="acc-row" style="width:100%;">
+        <div class="acc-lbl">GPS Accuracy</div>
+        <div class="acc-bar"><div class="acc-fill" id="acc-fill"></div></div>
+        <div class="acc-num" id="acc-num">--</div>
+      </div>
+
+      <button class="btn-share stop" id="btn-stop" onclick="promptEndTrip()" style="margin-top:4px;">
+        🏁 End Trip
+      </button>
+    </div>
+
+    <!-- Trip end form: shown after driver taps End Trip -->
+    <div class="pulse-card" id="trip-end-card" style="display:none;">
+      <div class="pulse-ring">🏁</div>
+      <div class="pulse-status">End Trip</div>
+      <div class="pulse-sub">Enter the closing odometer reading</div>
+      <div class="form-group" style="width:100%;text-align:left;">
+        <label class="form-label">Trip Ending Meter Reading (km)</label>
+        <input class="form-input" id="input-trip-end" type="number" inputmode="numeric" placeholder="e.g. 45340" />
+      </div>
+      <button class="btn-share stop" onclick="confirmEndTrip()" style="margin-top:2px;">
+        ✅ Confirm &amp; Finish Trip
+      </button>
+      <button class="logout-btn" style="margin-top:8px;width:100%;padding:10px;" onclick="cancelEndTrip()">Cancel</button>
+    </div>
+
+    <div class="info-strip">
+      <strong>Tips:</strong> Keep this tab open while driving. Screen stays on automatically. Location updates every few seconds to coordinator.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ COORDINATOR SCREEN ══════════════ -->
+<div id="screen-coordinator" class="screen">
+  <div class="app-header">
+    <div class="app-header-left">
+      <div class="header-logo">🗺️</div>
+      <div>
+        <div class="header-title" id="coord-header-name">Coordinator</div>
+        <div class="header-sub">Live Tracking Dashboard</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div> LIVE</div>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-num" id="s-total">0</div>
+      <div class="stat-lbl">Total</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num green" id="s-active">0</div>
+      <div class="stat-lbl">Active</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num muted" id="s-offline">0</div>
+      <div class="stat-lbl">Offline</div>
+    </div>
+  </div>
+
+  <div class="map-section" id="map-section">
+    <div class="map-empty-state" id="map-empty">
+      <div class="big-icon">📡</div>
+      <div>No active vehicles yet</div>
+      <div style="font-size:12px;">Vehicles will appear here when a trip starts</div>
+    </div>
+    <iframe id="map-frame" src="" style="display:none;"></iframe>
+    <div class="map-chip" id="map-chip" style="display:none;"></div>
+  </div>
+
+  <div class="drivers-panel">
+    <div class="panel-header">
+      <div class="panel-title">Vehicles</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--muted);" id="last-updated">--</span>
+        <button class="refresh-btn" onclick="showToast('Auto-refreshing every 5s ✓')">↻ Auto</button>
+      </div>
+    </div>
+    <div class="driver-list" id="driver-list">
+      <div class="empty-drivers">Connect to GitHub and wait for drivers to log in.</div>
+    </div>
+  </div>
+
+  <div class="drivers-panel" style="border-top:1px solid var(--border);">
+    <div class="panel-header">
+      <div class="panel-title">Trip History</div>
+      <span style="font-size:11px;color:var(--muted);" id="trip-last-updated">--</span>
+    </div>
+    <div class="trip-table-wrap">
+      <div class="trip-table-row trip-table-head">
+        <div>Date</div><div>Vehicle</div><div>Mobile Number</div><div>Start Reading</div><div>End Reading</div>
+      </div>
+      <div id="trip-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+// 1) Make a GitHub Personal Access Token (classic) with ONLY the "gist" scope
+//    → github.com/settings/tokens → Generate new token (classic)
+// 2) Create a new Gist at gist.github.com with one file named exactly
+//    tracker-data.json containing:  {"drivers":{},"trips":{}}
+// 3) Copy the Gist ID (the long string in the gist's URL) below, along
+//    with the token.
+const GITHUB_TOKEN = '';   // e.g. 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+const GIST_ID = '';        // e.g. 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+const GIST_FILE = 'tracker-data.json';
+const POLL_MS = 5000;      // how often the coordinator screen refreshes
+const PUSH_MS = 4000;      // min gap between a driver's location uploads
+
+// ── STATE ────────────────────────────────────────────────
+let currentRole = 'coordinator';
+let currentUser = '';
+let currentVehicle = '';
+let currentMobile = '';
+let watchId = null;
+let updateCount = 0;
+let driversData = {};
+let tripsData = [];
+let focusedDriver = null;
+let tripStartReading = null;
+let tripStartTs = null;
+let pollTimer = null;
+let lastPushTs = 0;
+
+// ── GITHUB GIST STORAGE ──────────────────────────────────
+function ghHeaders() {
+  return {
+    'Authorization': 'token ' + GITHUB_TOKEN,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
+}
+
+async function initGitHub() {
+  try {
+    const res = await fetch('https://api.github.com/gists/' + GIST_ID, { headers: ghHeaders() });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return true;
+  } catch (e) {
+    showToast('❌ GitHub error: ' + e.message);
+    return false;
+  }
+}
+
+async function fetchGistData() {
+  const res = await fetch('https://api.github.com/gists/' + GIST_ID, { headers: ghHeaders(), cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const gist = await res.json();
+  const file = gist.files[GIST_FILE];
+  if (!file) throw new Error('"' + GIST_FILE + '" not found in gist');
+  let content = file.content;
+  if (file.truncated) {
+    const raw = await fetch(file.raw_url, { cache: 'no-store' });
+    content = await raw.text();
+  }
+  try {
+    const data = JSON.parse(content);
+    data.drivers = data.drivers || {};
+    data.trips = data.trips || {};
+    return data;
+  } catch (e) {
+    return { drivers: {}, trips: {} };
+  }
+}
+
+async function saveGistData(data) {
+  const res = await fetch('https://api.github.com/gists/' + GIST_ID, {
+    method: 'PATCH',
+    headers: ghHeaders(),
+    body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(data) } } })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+async function updateDriver(key, patch) {
+  const data = await fetchGistData();
+  data.drivers[key] = { ...(data.drivers[key] || {}), ...patch };
+  await saveGistData(data);
+}
+
+async function addTrip(record) {
+  const data = await fetchGistData();
+  data.trips[genId()] = record;
+  await saveGistData(data);
+}
+
+// ── LOGIN ─────────────────────────────────────────────────
+function selectRole(role) {
+  currentRole = role;
+  document.getElementById('tab-coordinator').classList.toggle('selected', role === 'coordinator');
+  document.getElementById('tab-delivery').classList.toggle('selected', role === 'delivery');
+  document.getElementById('btn-login').className = 'btn-login ' + role;
+  document.getElementById('btn-login').textContent = role === 'coordinator' ? '🗺️ Login as Coordinator' : '🚛 Login as Driver';
+  document.getElementById('group-name').style.display = role === 'coordinator' ? 'block' : 'none';
+  document.getElementById('group-vehicle').style.display = role === 'delivery' ? 'block' : 'none';
+  document.getElementById('group-mobile').style.display = role === 'delivery' ? 'block' : 'none';
+  document.getElementById('login-error').textContent = '';
+}
+
+async function doLogin() {
+  let name = '';
+  if (currentRole === 'coordinator') {
+    name = document.getElementById('input-name').value.trim();
+    if (!name) { showLoginError('Please enter your name'); return; }
+  } else {
+    currentVehicle = document.getElementById('input-vehicle').value.trim().toUpperCase();
+    currentMobile = document.getElementById('input-mobile').value.trim();
+    if (!currentVehicle) { showLoginError('Please enter vehicle number'); return; }
+    if (!currentMobile) { showLoginError('Please enter mobile number'); return; }
+    name = currentVehicle;
+  }
+
+  if (!GITHUB_TOKEN || !GIST_ID) {
+    showLoginError('⚠️ No GitHub Token / Gist ID configured. Add them at the top of the script.'); return;
+  }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  const ok = await initGitHub();
+  btn.disabled = false;
+  if (!ok) { showLoginError('⚠️ Could not connect to GitHub. Check your token & Gist ID.'); return; }
+
+  currentUser = name;
+  document.getElementById('login-error').textContent = '';
+
+  if (currentRole === 'coordinator') {
+    document.getElementById('coord-header-name').textContent = name;
+    showScreen('coordinator');
+    startCoordinatorPolling();
+  } else {
+    document.getElementById('delivery-header-name').textContent = currentVehicle;
+    document.getElementById('delivery-header-mobile').textContent = '📱 ' + currentMobile;
+    resetDeliveryUI();
+    showScreen('delivery');
+  }
+  showToast('✅ Welcome, ' + name + '!');
+}
+
+function showLoginError(msg) {
+  document.getElementById('login-error').textContent = msg;
+}
+
+function logout() {
+  stopSharing();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  currentUser = '';
+  currentVehicle = '';
+  currentMobile = '';
+  tripStartReading = null;
+  tripStartTs = null;
+  watchId = null;
+  updateCount = 0;
+  driversData = {};
+  tripsData = [];
+  focusedDriver = null;
+  document.getElementById('input-name').value = '';
+  document.getElementById('input-vehicle').value = '';
+  document.getElementById('input-mobile').value = '';
+  document.getElementById('input-trip-start').value = '';
+  document.getElementById('input-trip-end').value = '';
+  resetDeliveryUI();
+  showScreen('login');
+}
+
+// ── SCREENS ───────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ── DRIVER / VEHICLE ───────────────────────────────────────
+function userKey() {
+  return (currentVehicle || currentUser).replace(/\s+/g, '_').toUpperCase();
+}
+
+function startTrip() {
+  const val = document.getElementById('input-trip-start').value.trim();
+  if (!val) { showToast('⚠️ Enter trip starting meter reading'); return; }
+  tripStartReading = val;
+  tripStartTs = Date.now();
+
+  document.getElementById('trip-setup-card').style.display = 'none';
+  document.getElementById('active-trip-card').style.display = 'flex';
+  document.getElementById('trip-start-chip').style.display = 'block';
+  document.getElementById('trip-start-chip').textContent = '🧾 Start Reading: ' + tripStartReading + ' km';
+
+  startSharing();
+}
+
+function startSharing() {
+  if (!navigator.geolocation) {
+    showToast('❌ GPS not supported on this device');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    onDeliveryPosition(pos);
+    watchId = navigator.geolocation.watchPosition(onDeliveryPosition, onGPSError, {
+      enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
+    });
+    document.getElementById('delivery-live-pill').style.display = 'flex';
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
+  }, onGPSError, { enableHighAccuracy: true, timeout: 15000 });
+}
+
+function onDeliveryPosition(pos) {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+  const acc = Math.round(pos.coords.accuracy);
+  updateCount++;
+
+  const now = Date.now();
+  if (now - lastPushTs >= PUSH_MS) {
+    lastPushTs = now;
+    updateDriver(userKey(), {
+      vehicle: currentVehicle,
+      mobile: currentMobile,
+      tripStart: tripStartReading,
+      lat, lng,
+      accuracy: acc,
+      timestamp: now,
+      status: 'active'
+    }).catch(() => showToast('⚠️ Upload failed'));
+  }
+
+  document.getElementById('pulse-ring').className = 'pulse-ring sharing';
+  document.getElementById('pulse-ring').textContent = '📍';
+  document.getElementById('pulse-status').textContent = '✅ Sharing Live Location';
+  document.getElementById('pulse-sub').textContent = 'Coordinator can see you now';
+  document.getElementById('update-badge').style.display = 'block';
+  document.getElementById('update-count').textContent = updateCount;
+  document.getElementById('coords-grid').style.display = 'grid';
+  document.getElementById('d-lat').textContent = lat.toFixed(6);
+  document.getElementById('d-lng').textContent = lng.toFixed(6);
+  document.getElementById('acc-num').textContent = acc + 'm';
+  const pct = Math.max(5, Math.min(100, 100 - (acc / 100 * 100)));
+  document.getElementById('acc-fill').style.width = pct + '%';
+}
+
+function onGPSError(err) {
+  document.getElementById('pulse-ring').className = 'pulse-ring error';
+  document.getElementById('pulse-status').textContent = 'GPS Error';
+  document.getElementById('pulse-sub').textContent = err.message;
+  showToast('❌ GPS error: ' + err.message);
+}
+
+// Show the "enter closing meter reading" form
+function promptEndTrip() {
+  document.getElementById('active-trip-card').style.display = 'none';
+  document.getElementById('trip-end-card').style.display = 'flex';
+}
+
+// Driver changed their mind — go back to the live sharing view
+function cancelEndTrip() {
+  document.getElementById('trip-end-card').style.display = 'none';
+  document.getElementById('active-trip-card').style.display = 'flex';
+}
+
+// Save the completed trip record and stop sharing
+function confirmEndTrip() {
+  const endVal = document.getElementById('input-trip-end').value.trim();
+  if (!endVal) { showToast('⚠️ Enter trip ending meter reading'); return; }
+
+  const now = new Date();
+  const tripRecord = {
+    date: now.toLocaleDateString('en-GB'),
+    vehicle: currentVehicle,
+    mobile: currentMobile,
+    tripStart: tripStartReading,
+    tripEnd: endVal,
+    startTs: tripStartTs || Date.now(),
+    endTs: Date.now()
+  };
+
+  addTrip(tripRecord).catch(() => showToast('⚠️ Failed to save trip'));
+
+  stopSharing();
+  document.getElementById('input-trip-start').value = '';
+  document.getElementById('input-trip-end').value = '';
+  tripStartReading = null;
+  tripStartTs = null;
+  showToast('✅ Trip completed and sent to coordinator');
+}
+
+function stopSharing() {
+  if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (currentVehicle) {
+    updateDriver(userKey(), { status: 'offline' }).catch(()=>{});
+  }
+  resetDeliveryUI();
+}
+
+function resetDeliveryUI() {
+  updateCount = 0;
+  document.getElementById('pulse-ring').className = 'pulse-ring';
+  document.getElementById('pulse-ring').textContent = '📍';
+  document.getElementById('pulse-status').textContent = 'Ready to share';
+  document.getElementById('pulse-sub').textContent = 'Press Start to share your location';
+  document.getElementById('update-badge').style.display = 'none';
+  document.getElementById('trip-start-chip').style.display = 'none';
+  document.getElementById('coords-grid').style.display = 'none';
+  document.getElementById('acc-fill').style.width = '0';
+  document.getElementById('acc-num').textContent = '--';
+  document.getElementById('trip-end-card').style.display = 'none';
+  document.getElementById('active-trip-card').style.display = 'none';
+  document.getElementById('trip-setup-card').style.display = 'flex';
+  document.getElementById('delivery-live-pill').style.display = 'none';
+}
+
+// ── COORDINATOR ───────────────────────────────────────────
+function startCoordinatorPolling() {
+  const tick = async () => {
+    try {
+      const data = await fetchGistData();
+      driversData = data.drivers;
+      tripsData = Object.values(data.trips);
+      tripsData.sort((a, b) => (b.endTs || b.startTs || 0) - (a.endTs || a.startTs || 0));
+      renderDriverList();
+      renderTripList();
+      updateStats();
+      updateMapForFocused();
+      const t = 'Updated ' + new Date().toLocaleTimeString();
+      document.getElementById('last-updated').textContent = t;
+      document.getElementById('trip-last-updated').textContent = t;
+    } catch (e) {
+      document.getElementById('last-updated').textContent = '⚠️ Update failed';
+    }
+  };
+  tick();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(tick, POLL_MS);
+}
+
+function renderTripList() {
+  const list = document.getElementById('trip-list');
+  if (!tripsData.length) {
+    list.innerHTML = '<div class="empty-drivers">No trips recorded yet.</div>';
+    return;
+  }
+  list.innerHTML = tripsData.map(t => `
+    <div class="trip-table-row">
+      <div>${t.date || '--'}</div>
+      <div>${t.vehicle || '--'}</div>
+      <div>${t.mobile || '--'}</div>
+      <div>${t.tripStart || '--'}</div>
+      <div>${t.tripEnd || '--'}</div>
+    </div>`).join('');
+}
+
+function isOnline(d) {
+  return d.status === 'active' && (Date.now() - d.timestamp) < 90000;
+}
+
+function timeAgo(ts) {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.round(s/60) + 'm ago';
+  return Math.round(s/3600) + 'h ago';
+}
+
+function updateStats() {
+  const keys = Object.keys(driversData);
+  const active = keys.filter(k => isOnline(driversData[k])).length;
+  document.getElementById('s-total').textContent = keys.length;
+  document.getElementById('s-active').textContent = active;
+  document.getElementById('s-offline').textContent = keys.length - active;
+}
+
+function renderDriverList() {
+  const list = document.getElementById('driver-list');
+  const keys = Object.keys(driversData);
+  if (!keys.length) {
+    list.innerHTML = '<div class="empty-drivers">No drivers logged in yet.<br>Share this app link with your delivery team.</div>';
+    return;
+  }
+  keys.sort((a,b) => (driversData[b].timestamp||0) - (driversData[a].timestamp||0));
+  list.innerHTML = keys.map(k => {
+    const d = driversData[k];
+    const online = isOnline(d);
+    const focused = focusedDriver === k;
+    return `<div class="driver-card${focused?' focused':''}" onclick="focusDriver('${k}')">
+      <div class="avatar delivery-role">
+        🚛
+        <div class="status-badge ${online?'badge-on':'badge-off'}"></div>
+      </div>
+      <div class="driver-info">
+        <div class="d-name">${d.vehicle || k}</div>
+        <div class="d-coords">📱 ${d.mobile || '--'} · ${d.lat ? d.lat.toFixed(5)+', '+d.lng.toFixed(5) : 'No location yet'}</div>
+        <div class="d-meta">
+          <span class="d-time">${d.timestamp ? timeAgo(d.timestamp) : '--'}</span>
+          <span class="d-acc">Start: ${d.tripStart || '--'}</span>
+          <span class="d-acc">${online?'🟢 Online':'⚫ Offline'}</span>
+        </div>
+      </div>
+      <button class="track-btn" onclick="event.stopPropagation();focusDriver('${k}')">Track</button>
+    </div>`;
+  }).join('');
+}
+
+function focusDriver(key) {
+  focusedDriver = key;
+  renderDriverList();
+  updateMapForFocused();
+}
+
+function updateMapForFocused() {
+  const keys = Object.keys(driversData);
+  const onlineKeys = keys.filter(k => isOnline(driversData[k]));
+  const target = (focusedDriver && driversData[focusedDriver]?.lat) ? focusedDriver
+    : (onlineKeys[0] || null);
+
+  if (!target || !driversData[target]?.lat) {
+    document.getElementById('map-empty').style.display = 'flex';
+    document.getElementById('map-frame').style.display = 'none';
+    document.getElementById('map-chip').style.display = 'none';
+    return;
+  }
+
+  const d = driversData[target];
+  const url = `https://maps.google.com/maps?q=${d.lat},${d.lng}&z=16&output=embed`;
+  const frame = document.getElementById('map-frame');
+  if (frame.src !== url) frame.src = url;
+  frame.style.display = 'block';
+  document.getElementById('map-empty').style.display = 'none';
+  const chip = document.getElementById('map-chip');
+  chip.style.display = 'block';
+  chip.textContent = '📍 ' + (d.name||target) + ' · ' + timeAgo(d.timestamp);
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg, dur=3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── INIT ──────────────────────────────────────────────────
+(function init() {
+  selectRole('coordinator');
+})();
+</script>
+</body>
+</html>
