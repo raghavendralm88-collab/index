@@ -388,12 +388,12 @@ body {
 }
 .trip-table-row {
   display: grid;
-  grid-template-columns: 1.1fr 1.3fr 1.3fr 1fr 1fr;
+  grid-template-columns: 0.9fr 1fr 1.1fr 0.8fr 1.3fr 0.8fr 1.3fr;
   gap: 6px;
   padding: 10px 12px;
   font-size: 12px;
   border-bottom: 1px solid var(--border);
-  min-width: 480px;
+  min-width: 760px;
 }
 .trip-table-row:last-child { border-bottom: none; }
 .trip-table-head {
@@ -622,7 +622,7 @@ body {
     </div>
     <div class="trip-table-wrap">
       <div class="trip-table-row trip-table-head">
-        <div>Date</div><div>Vehicle</div><div>Mobile Number</div><div>Start Reading</div><div>End Reading</div>
+        <div>Date</div><div>Vehicle</div><div>Mobile Number</div><div>Start Reading</div><div>Start Location</div><div>End Reading</div><div>End Location</div>
       </div>
       <div id="trip-list"></div>
     </div>
@@ -657,6 +657,8 @@ let tripsData = [];
 let focusedDriver = null;
 let tripStartReading = null;
 let tripStartTs = null;
+let tripStartLocation = null;
+let tripEndLocation = null;
 let pollTimer = null;
 let lastPushTs = 0;
 
@@ -700,6 +702,28 @@ async function saveGistData(data) {
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ── REVERSE GEOCODING (place name from lat/lng, no API key needed) ──
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data.address || {};
+    const parts = [
+      addr.suburb || addr.neighbourhood || addr.village || addr.town || addr.city_district || addr.hamlet,
+      addr.city || addr.town || addr.county
+    ].filter(Boolean);
+    if (parts.length) return parts.join(', ');
+    if (data.display_name) return data.display_name.split(',').slice(0, 2).join(',').trim();
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function updateDriver(key, patch) {
@@ -778,7 +802,8 @@ function logout() {
   currentMobile = '';
   tripStartReading = null;
   tripStartTs = null;
-  watchId = null;
+  tripStartLocation = null;
+  tripEndLocation = null;
   updateCount = 0;
   driversData = {};
   tripsData = [];
@@ -808,6 +833,7 @@ function startTrip() {
   if (!val) { showToast('⚠️ Enter trip starting meter reading'); return; }
   tripStartReading = val;
   tripStartTs = Date.now();
+  tripStartLocation = null;
 
   document.getElementById('trip-setup-card').style.display = 'none';
   document.getElementById('active-trip-card').style.display = 'flex';
@@ -815,6 +841,18 @@ function startTrip() {
   document.getElementById('trip-start-chip').textContent = '🧾 Start Reading: ' + tripStartReading + ' km';
 
   startSharing();
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      reverseGeocode(pos.coords.latitude, pos.coords.longitude).then(name => {
+        tripStartLocation = name;
+        if (name) {
+          document.getElementById('trip-start-chip').textContent =
+            '🧾 Start Reading: ' + tripStartReading + ' km · 📍 ' + name;
+        }
+      });
+    }, () => {}, { enableHighAccuracy: true, timeout: 15000 });
+  }
 }
 
 function startSharing() {
@@ -887,9 +925,25 @@ function cancelEndTrip() {
 }
 
 // Save the completed trip record and stop sharing
-function confirmEndTrip() {
+async function confirmEndTrip() {
   const endVal = document.getElementById('input-trip-end').value.trim();
   if (!endVal) { showToast('⚠️ Enter trip ending meter reading'); return; }
+
+  showToast('📍 Getting your location…', 8000);
+
+  let endLat = null, endLng = null;
+  if (navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 })
+      );
+      endLat = pos.coords.latitude;
+      endLng = pos.coords.longitude;
+      tripEndLocation = await reverseGeocode(endLat, endLng);
+    } catch (e) {
+      tripEndLocation = null;
+    }
+  }
 
   const now = new Date();
   const tripRecord = {
@@ -898,6 +952,8 @@ function confirmEndTrip() {
     mobile: currentMobile,
     tripStart: tripStartReading,
     tripEnd: endVal,
+    startLocation: tripStartLocation || '--',
+    endLocation: tripEndLocation || '--',
     startTs: tripStartTs || Date.now(),
     endTs: Date.now()
   };
@@ -909,6 +965,8 @@ function confirmEndTrip() {
   document.getElementById('input-trip-end').value = '';
   tripStartReading = null;
   tripStartTs = null;
+  tripStartLocation = null;
+  tripEndLocation = null;
   showToast('✅ Trip completed and sent to coordinator');
 }
 
@@ -973,7 +1031,9 @@ function renderTripList() {
       <div>${t.vehicle || '--'}</div>
       <div>${t.mobile || '--'}</div>
       <div>${t.tripStart || '--'}</div>
+      <div title="${t.startLocation || '--'}">${t.startLocation || '--'}</div>
       <div>${t.tripEnd || '--'}</div>
+      <div title="${t.endLocation || '--'}">${t.endLocation || '--'}</div>
     </div>`).join('');
 }
 
